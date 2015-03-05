@@ -2,7 +2,7 @@ require 'uri'
 
 module ForemanBootdisk
   class DisksController < ::ApplicationController
-    before_filter :find_resource, :only => %w[host full_host]
+    before_filter :find_resource, :only => %w[host full_host subnet]
 
     def generic
       begin
@@ -37,6 +37,22 @@ module ForemanBootdisk
       host = @disk
       ForemanBootdisk::ISOGenerator.generate_full_host(host) do |iso|
         send_data File.read(iso), :filename => "#{host.name}#{ForemanBootdisk::ISOGenerator.token_expiry(host)}.iso"
+      end
+    end
+
+    def subnet
+      host = @disk
+      begin
+        tmpl = ForemanBootdisk::Renderer.new.generic_template_render(@disk)
+      rescue => e
+        error _('Failed to render boot disk template: %s') % e
+        redirect_to :back
+        return
+      end
+
+      ForemanBootdisk::ISOGenerator.generate(:ipxe => tmpl) do |iso|
+        name=@disk.try(:subnet).try(:name)
+        send_data File.read(iso), :filename => "bootdisk_subnet_#{name}.iso"
       end
     end
 
